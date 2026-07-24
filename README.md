@@ -1,4 +1,4 @@
-# 🛡️ Constrained ReAct Agent for Hospital Triage
+# Constrained ReAct Agent for Hospital Triage
 This directory contains the implementation of the **Constrained ReAct Architecture** for Emergency Hospital Triage. It combines LLM-driven multi-step reasoning with strict engineering guardrails to prevent schema hallucinations, infinite loops, and unhandled runtime exceptions in critical care workflows.
 ##  Core Engineering Guardrails
 The guardrails are explicitly defined in the code for maximum transparency and safety:
