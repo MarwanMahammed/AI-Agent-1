@@ -5,7 +5,7 @@ from pathlib import Path
 from enum import Enum
 from typing import Literal
 from dotenv import load_dotenv
-
+from enum import Enum
 from pydantic import BaseModel, Field
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
@@ -21,10 +21,12 @@ from tools import (
     assess_surgery_risk,
     check_transfer_options,
     allocate_resource,
+    assign_triage_level
 )
 
 # 2) AllowedActions (Strict Enum)
 class AllowedActions(str, Enum):
+    ASSIGN_TRIAGE_LEVEL = "assign_triage_level"
     CHECK_RESOURCES = "check_hospital_resources"
     GET_PATIENT_HISTORY = "get_patient_history"
     ASSESS_SURGERY_RISK = "assess_surgery_risk"
@@ -32,7 +34,6 @@ class AllowedActions(str, Enum):
     ALLOCATE_RESOURCE = "allocate_resource"
     ESCALATE_TO_HUMAN = "escalate_to_human"
     FINAL_DECISION = "final_decision"
-
 # 3) Pydantic Schema
 class ConstrainedAgentStep(BaseModel):
     thought: str = Field(
@@ -48,18 +49,24 @@ class ConstrainedAgentStep(BaseModel):
         default_factory=dict,
         description="Dynamic dictionary of parameters required for the selected action.",
     )
-
+class TriageLevel(str, Enum):
+    LEVEL_1_RESUSCITATION = "Level 1: Immediate life-threatening"
+    LEVEL_2_EMERGENT = "Level 2: High risk / Severe pain"
+    LEVEL_3_URGENT = "Level 3: Stable, needs multiple resources"
+    LEVEL_4_LESS_URGENT = "Level 4: Stable, needs single resource"
+    LEVEL_5_NON_URGENT = "Level 5: Stable, no resources needed"
 
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     temperature=0.0,
-    groq_api_key="groq_api_key"  # تم تغيير الاسم إلى groq_api_key أو تمريره مباشرة
+    groq_api_key=""  
 )
 
 structured_llm = llm.with_structured_output(ConstrainedAgentStep)
 
 # 5) Mapping of AllowedActions to Tool Functions
 tools_map = {
+    AllowedActions.ASSIGN_TRIAGE_LEVEL: assign_triage_level,
     AllowedActions.CHECK_RESOURCES: check_hospital_resources,
     AllowedActions.GET_PATIENT_HISTORY: get_patient_history,
     AllowedActions.ASSESS_SURGERY_RISK: assess_surgery_risk,
