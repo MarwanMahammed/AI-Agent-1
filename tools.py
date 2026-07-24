@@ -24,3 +24,6 @@ def allocate_resource(resource_type: str = "ICU_beds", **kwargs):
     target_resource = kwargs.get("resource") or kwargs.get("bed_type") or resource_type
     
     return f"Successfully allocated {target_resource}"
+def assign_triage_level(triage_level: str = "Level 1"):
+    """Assigns and records the clinical triage severity level for the patient."""
+    return f"Patient triage level successfully recorded as: {triage_level}"
