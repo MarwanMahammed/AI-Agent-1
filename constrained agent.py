@@ -10,11 +10,11 @@ from pydantic import BaseModel, Field
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 
-# 1) إعداد مسار المشروع وتحميل متغيرات البيئة (.env)
+# 1)dowload_dotenv(.env)
 sys.path.insert(0, str(Path(__file__).parent))
 load_dotenv()
 
-# استيراد الأدوات من tools.py
+# tools.py
 from tools import (
     check_hospital_resources,
     get_patient_history,
@@ -23,7 +23,7 @@ from tools import (
     allocate_resource,
 )
 
-# 2) تعريف الأفعال المسموح بها فقط (Strict Enum)
+# 2) AllowedActions (Strict Enum)
 class AllowedActions(str, Enum):
     CHECK_RESOURCES = "check_hospital_resources"
     GET_PATIENT_HISTORY = "get_patient_history"
@@ -33,7 +33,7 @@ class AllowedActions(str, Enum):
     ESCALATE_TO_HUMAN = "escalate_to_human"
     FINAL_DECISION = "final_decision"
 
-# 3) Pydantic Schema لتحديد مخرجات كل خطوة
+# 3) Pydantic Schema
 class ConstrainedAgentStep(BaseModel):
     thought: str = Field(
         description="Detailed clinical reasoning and process strategy for the current step."
@@ -49,8 +49,7 @@ class ConstrainedAgentStep(BaseModel):
         description="Dynamic dictionary of parameters required for the selected action.",
     )
 
-# 4) تهيئة الـ LLM
-# 4) تهيئة الـ LLM مع كتابة المفتاح مباشرة
+
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     temperature=0.0,
@@ -59,7 +58,7 @@ llm = ChatGroq(
 
 structured_llm = llm.with_structured_output(ConstrainedAgentStep)
 
-# 5) خريطة الربط الديناميكي بين الأفعال والدوال
+# 5) Mapping of AllowedActions to Tool Functions
 tools_map = {
     AllowedActions.CHECK_RESOURCES: check_hospital_resources,
     AllowedActions.GET_PATIENT_HISTORY: get_patient_history,
@@ -68,7 +67,7 @@ tools_map = {
     AllowedActions.ALLOCATE_RESOURCE: allocate_resource,
 }
 
-# 6) Prompt النظام (تم إصلاح الأقواس المجعدة)
+# 6) Prompt Template with System Instructions
 SYSTEM_PROMPT = """You are a Constrained Hospital Emergency Triage AI Agent.
 Your primary directive is patient safety and strict adherence to protocol.
 
@@ -87,10 +86,10 @@ prompt = ChatPromptTemplate.from_messages([
     ("user", "Context & Trajectory History:\n{history}\n\nCurrent Task: {input}")
 ])
 
-# 7) حلقة التنفيذ المخصصة (Deterministic Custom ReAct Loop)
-def run_constrained_agent(user_query: str, max_steps: int = 5):
+# 7) Constrained Agent Execution Loop (Deterministic Custom ReAct Loop)
+def run_constrained_agent(user_query: str, max_steps: int = 6):
     history = []
-    print(f"\n🚀 [Starting Constrained Agent Execution] Task: {user_query}\n")
+    print(f"\n [Starting Constrained Agent Execution] Task: {user_query}\n")
 
     for step_num in range(1, max_steps + 1):
         history_text = "\n".join([f"- {h}" for h in history]) if history else "None"
@@ -106,46 +105,46 @@ def run_constrained_agent(user_query: str, max_steps: int = 5):
                 err_str = str(e)
                 if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
                     wait_time = attempt * 10
-                    print(f"⚠️ Rate limit hit. Cooling down for {wait_time}s... (Attempt {attempt}/3)")
+                    print(f" Rate limit hit. Cooling down for {wait_time}s... (Attempt {attempt}/3)")
                     time.sleep(wait_time)
                 else:
-                    print(f"⚠️ API Error: {err_str}. Retrying in 2s...")
+                    print(f" API Error: {err_str}. Retrying in 2s...")
                     time.sleep(2)
 
         if not step_output:
             return "Execution failed due to API connection issues."
 
         print(f"--- Step {step_num} ---")
-        print(f"🧠 Thought: {step_output.thought}")
-        print(f"⚠️ Urgency: {step_output.urgency_level}")
-        print(f"🛠️ Action Chosen: {step_output.action.value}")
+        print(f" Thought: {step_output.thought}")
+        print(f" Urgency: {step_output.urgency_level}")
+        print(f" Action Chosen: {step_output.action.value}")
 
         if step_output.action == AllowedActions.FINAL_DECISION:
-            print("\n✅ [FINAL DECISION REACHED]")
+            print("\n [FINAL DECISION REACHED]")
             return step_output.thought
 
         if step_output.action == AllowedActions.ESCALATE_TO_HUMAN:
-            print("\n🚨 [ESCALATED TO HUMAN DOCTOR]")
+            print("\n [ESCALATED TO HUMAN DOCTOR]")
             return f"Escalated to medical staff: {step_output.thought}"
 
         tool_func = tools_map.get(step_output.action)
         if tool_func:
             try:
                 observation = tool_func(**step_output.action_input)
-                print(f"🔍 Observation: {observation}\n")
+                print(f" Observation: {observation}\n")
                 history.append(f"Action '{step_output.action.value}' returned: {observation}")
             except Exception as e:
                 error_msg = f"Tool execution error: {str(e)}"
-                print(f"❌ Error: {error_msg}\n")
+                print(f" Error: {error_msg}\n")
                 history.append(error_msg)
 
         time.sleep(1)
 
-    print("\n🛑 [MAX STEPS REACHED - AUTO ESCALATING]")
+    print("\n [MAX STEPS REACHED - AUTO ESCALATING]")
     return "Safety Escalation: Reached max interaction steps without resolution."
 
 
 if __name__ == "__main__":
     query = "Patient P-102 needs urgent ICU bed allocation for severe trauma."
     result = run_constrained_agent(query)
-    print(f"\n📋 Final Agent Outcome: {result}")
+    print(f"\n Final Agent Outcome: {result}")
